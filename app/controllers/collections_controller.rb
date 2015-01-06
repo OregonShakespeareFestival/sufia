@@ -14,7 +14,23 @@ class CollectionsController < ApplicationController
 
   layout "sufia-one-column"
 
-  protected 
+  def show
+    super
+    @presenter = presenter
+  end
+
+  protected
+
+  def presenter
+    Sufia::CollectionPresenter.new(@collection)
+  end
+
+  def collection_params
+    params.require(:collection).permit(:title, :description, :members, part_of: [],
+      contributor: [], creator: [], publisher: [], date_created: [], subject: [],
+      language: [], rights: [], resource_type: [], identifier: [], based_near: [],
+      tag: [], related_url: [])
+  end
 
   def query_collection_members
     flash[:notice]=nil if flash[:notice] == "Select something first"
@@ -33,9 +49,9 @@ class CollectionsController < ApplicationController
       format.json { render json: {id: id}, status: :destroyed, location: @collection }
     end
   end
-  
+
   def initialize_fields_for_edit
-    @collection.initialize_fields
+    @form = Sufia::Forms::CollectionEditForm.new(@collection)
   end
 
   def _prefixes

@@ -1,10 +1,41 @@
 # History of Sufia releases
 
+## 4.3.1
+
+* Adds an ORCID field to the user model. [Michael J. Giarlo]
+* Styles count for views and downloads, refs #9672 [Michael Tribone]
+* Merge pull request #787 from projecthydra/update_master_to_bl-5.8 [Justin Coyne]
+* More facets modal defaults to numerical sort [Adam Wead]
+* Upgrade to Blacklight 5.8 [Adam Wead]
+* Adding select2 name look up to permissions form for GenericFile and Batch. [Carolyn Cole]
+* Adding blacklight gallery default views to catalog controller to match with the new installer.
+* Display file stats for user.  Feature #9305 [Valerie Maher]
+* Making sure the modal is actually sorted numerically and allow some files to be on the second p
+* Fixing a bug that the home page crashes when a featured work has been destroyed [Carolyn Cole]
+* Fixes button size and alignment issues with metadata and upload forms, refs #9569 [Michael Tribone]
+* Updated dev notes [Valerie Maher]
+* Disable check all instead of making it disappear.  User testing indicated this was confusing [Carolyn Cole]
+* Views should not use the invalid Agent schema.org class [Michael J. Giarlo]
+* README should not implicitly suggest an outdated version of Sufia. (Inspired by #719 -- thx, @mistydemeo!) [Michael J. Giarlo]
+
+## 4.3.0 - YANKED
+
+## 4.2.0
+
+* Caches google analytics data in the database so we do not have to retrieve them each time the page is loaded [Carolyn Cole]
+* Allows adopters to inject content into the layout's head block, needed by ScholarSphere to add a favicon [Mike Giarlo]
+* Removes redundant title attributes for featured and recent works, fixes orphaned labels [Michael Tribone]
+* Pins mini_magick for rubies < 2.1 [Carolyn Cole]
+* Changes the way we log depositor change events [Mike Giarlo]
+* Breaks cached stats migrations into dedicated generator [Mike Giarlo]
+* Fixes bug with proxy setup in the install generator [Mike Giarlo]
+* Fixes bug in batch editing javascript [Carolyn Cole]
+
 ## 4.1.0
 
-* Adds proxy deposit, "sticky" proxies, and transfers of ownership (from ScholarSphere) [mjgiarlo]
-* Fixes bug with form fields attached to single-valued terms [cam156]
-* Converts specs to use RSpec 3 style [mjgiarlo]
+* Adds proxy deposit, "sticky" proxies, and transfers of ownership (from ScholarSphere) [Mike Giarlo]
+* Fixes bug with form fields attached to single-valued terms [Carolyn Cole]
+* Converts specs to use RSpec 3 style [Mike Giarlo]
 
 ## 4.0.1
 
@@ -161,6 +192,7 @@ This release contains bug fixes and css fixes found after the Sufia 4.0 release.
   * changing to bootstrap 3 danger from important to get the red background for permissions, and fixing collection detail spacing when there is no description [Carolyn Cole]
   * Upgrade to rspec 3. Fixes #493 [Carolyn Cole]
   * Removed extraneous colons preceding key names. Fixes #516 [kerchner]
+
 ## 4.0.0.rc1
 
   * Use the bootstrap_form helpers (bootstrap_forms is no longer available) [Justin Coyne]

@@ -35,7 +35,6 @@
 //= require sufia/trophy
 //= require sufia/featured_works
 //= require sufia/batch_select_all
-//= require sufia/multiForm
 //= require sufia/edit_metadata
 //= require sufia/single_use_link
 //= require sufia/audio
@@ -51,7 +50,13 @@
 //= require sufia/batch
 
 //= require hydra_collections
-//= require browse_everything
+//= require hydra-editor/hydra-editor
+
+//
+// For Browse-everything until https://github.com/projecthydra-labs/browse-everything/issues/85 is resolved:
+//= require jquery.treetable
+//= require browse_everything/behavior
+//
 //= require jquery.blacklightTagCloud
 //= require sufia/tagcloud
 //= require nestable

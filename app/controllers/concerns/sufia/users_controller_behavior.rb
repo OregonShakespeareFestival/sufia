@@ -48,8 +48,8 @@ module Sufia::UsersControllerBehavior
   # Process changes from profile form
   def update
     if params[:user]
-      @user.update_attributes(params.require(:user).permit(*User.permitted_attributes))
-      @user.populate_attributes if ActiveRecord::ConnectionAdapters::Column.value_to_boolean(params[:user][:update_directory])
+      @user.attributes = user_params
+      @user.populate_attributes if update_directory?
     end
 
     unless @user.save
@@ -65,9 +65,12 @@ module Sufia::UsersControllerBehavior
     redirect_to sufia.profile_path(@user.to_param), notice: "Your profile has been updated"
   end
 
+  def update_directory?
+    ['1', 'true'].include? params[:user][:update_directory]
+  end
+
   def toggle_trophy
-     id = Sufia::Noid.namespaceize params[:file_id]
-     unless current_user.can? :edit, id
+     unless current_user.can? :edit, params[:file_id]
        redirect_to root_path, alert: "You do not have permissions to the file"
        return false
      end
@@ -103,6 +106,14 @@ module Sufia::UsersControllerBehavior
   end
 
   protected
+
+  def user_params
+    params.require(:user).permit(:email, :login, :display_name, :address, :admin_area,
+      :department, :title, :office, :chat_id, :website, :affiliation,
+      :telephone, :avatar, :group_list, :groups_last_update, :facebook_handle,
+      :twitter_handle, :googleplus_handle, :linkedin_handle, :remove_avatar, :orcid)
+  end
+
 
   # You can override base_query to return a list of arguments
   def base_query

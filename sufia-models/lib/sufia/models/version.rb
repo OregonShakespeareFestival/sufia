@@ -1,5 +1,5 @@
 module Sufia
   module Models
-    VERSION = "4.1.0"
+    VERSION = "6.0.0.beta1"
   end
 end

@@ -65,7 +65,7 @@ If you have questions or need help, please email [the Hydra community developmen
 ### Add gems to Gemfile
 
 ```
-gem 'sufia', '~> 4.0.0'
+gem 'sufia'
 gem 'kaminari', github: 'harai/kaminari', branch: 'route_prefix_prototype'  # required to handle pagination properly in dashboard. See https://github.com/amatsuda/kaminari/pull/322
 ```
 
@@ -123,22 +123,6 @@ The line with kaminari listed as a dependency in Gemfile is a temporary fix to a
 [problem](https://github.com/amatsuda/kaminari/pull/322) in the current release of kaminari.
 Technically you should not have to list kaminari, which is a dependency of blacklight and sufia.
 
-#### Bundler
-
-Users have reported problems with the initial `bundle install` command, seeing an error such as:
-
-```
-Bundler could not find compatible versions for gem "bootstrap-sass":
-  In Gemfile:
-    sufia (~> 4.0.0) ruby depends on
-      bootstrap-sass (< 3.2) ruby
-
-    sufia (~> 4.0.0) ruby depends on
-      bootstrap-sass (3.2.0.2)
-```
-
-The solution is to update your bundler gem to the latest version.
-
 ### Proxies and Transfers
 
 To add proxies and transfers to your Sufia 4-based app, run the 'sufia:models:proxies' generator and then run 'rake db:migrate'.
@@ -181,7 +165,7 @@ The generator will create a configuration file at _config/analytics.yml_.  Edit 
 * An application name (you can make this up)
 * An application version (you can make this up)
 
-Lastly, you will need to set `config.analytics = true` in _config/initializers/sufia.rb_ and ensure that the OAuth client email
+Lastly, you will need to set `config.analytics = true` and `config.analytic_start_date` in _config/initializers/sufia.rb_ and ensure that the OAuth client email
 has the proper access within your Google Analyics account.  To do so, go to the _Admin_ tab for your Google Analytics account.
 Click on _User Management_, in the _Account_ column, and add "Read & Analyze" permissions for the OAuth client email address.
 
@@ -248,7 +232,7 @@ configure_blacklight do |config|
 
   # Specify which field to use in the tag cloud on the homepage.
   # To disable the tag cloud, comment out this line.
-  config.tag_cloud_field_name = Solrizer.solr_name("desc_metadata__tag", :facetable)
+  config.tag_cloud_field_name = Solrizer.solr_name("tag", :facetable)
 end
 ```
 
@@ -265,7 +249,11 @@ This information is for people who want to modify the engine itself, not an appl
 ### run the tests
 
 ```
-rake clean spec
+rake jetty:start
+redis-server
+rake engine_cart:clean
+rake engine_cart:generate
+rake spec
 ```
 
 ### Change validation behavior
