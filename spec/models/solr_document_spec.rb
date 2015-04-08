@@ -1,22 +1,25 @@
 require 'spec_helper'
 
-describe SolrDocument, :type => :model do
+describe SolrDocument, type: :model do
 
   describe "date_uploaded" do
     before do
-      subject['desc_metadata__date_uploaded_dtsi'] = '2013-03-14T00:00:00Z'
+      subject['date_uploaded_dtsi'] = '2013-03-14T00:00:00Z'
     end
     it "should be a date" do
       expect(subject.date_uploaded).to eq '03/14/2013'
     end
   end
 
-  describe "to_param" do
+  describe '#to_param' do
+    let(:id) { '1v53kn56d' }
+
     before do
-      subject['noid_tsi'] = '1v53kn56d'
+      subject[:id] = id
     end
-    it "should be noid" do
-      expect(subject.to_param).to eq '1v53kn56d'
+
+    it 'returns the object identifier' do
+      expect(subject.to_param).to eq id
     end
   end
 

@@ -1,7 +1,7 @@
 <% current_tab = @selected_tab.to_s %>
 <% content_for :head do %>
-    <%= auto_discovery_link_tag(:rss, sufia.url_for(params.merge(format: 'rss')), title: "RSS for results") %>
-    <%= auto_discovery_link_tag(:atom, sufia.url_for(params.merge(format: 'atom')), title: "Atom for results") %>
+  <%= auto_discovery_link_tag(:rss, sufia.url_for(params.merge(format: 'rss')), title: "RSS for results") %>
+  <%= auto_discovery_link_tag(:atom, sufia.url_for(params.merge(format: 'atom')), title: "Atom for results") %>
 <% end %>
 
 <%= javascript_tag do %>
@@ -9,7 +9,6 @@
 <% end %>
 
 <% @page_title = "#{current_tab.capitalize} listing" %>
-
 
 <ul class="nav nav-tabs" id="my_nav">
   <h1 class="sr-only">Listing Navigation Bar</h1>
@@ -34,8 +33,8 @@
 <%= render partial: 'document_list' %>
 
 <% content_for :sidebar do %>
-  <%= link_to t("sufia.dashboard.upload"), sufia.new_generic_file_path, class: "btn btn-primary" %>
-  <%= link_to t("sufia.dashboard.create_collection"), collections.new_collection_path, id: "hydra-collection-add", class: "btn btn-primary" %>
+  <%= link_to t('sufia.dashboard.upload_html'), sufia.new_generic_file_path, class: "btn btn-primary" %>
+  <%= link_to t('sufia.dashboard.create_collection_html'), collections.new_collection_path, id: "hydra-collection-add", class: "btn btn-primary" %>
   <%= render partial: 'facets', locals: {current_tab: current_tab} %>
 <% end %>
 

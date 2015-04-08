@@ -14,11 +14,11 @@ Gem::Specification.new do |gem|
   gem.name          = "sufia"
   gem.require_paths = ["lib"]
   gem.version       = version
-  gem.license       = 'APACHE2'
+  gem.license       = 'Apache2'
 
   gem.add_dependency 'sufia-models', version
-  gem.add_dependency 'blacklight_advanced_search', '~> 5.0'
-  gem.add_dependency 'blacklight', '~> 5.5'
+  gem.add_dependency 'blacklight_advanced_search', ['>= 5.1.4', '< 6.0']
+  gem.add_dependency 'blacklight', '~> 5.12'
   gem.add_dependency 'tinymce-rails', '~> 4.0.19'
   gem.add_dependency 'tinymce-rails-imageupload', '~> 4.0.16.beta'
 
@@ -28,29 +28,27 @@ Gem::Specification.new do |gem|
   # declare a dependency on) sass-rails
   gem.add_dependency 'sass-rails'
 
-  gem.add_dependency 'hydra-batch-edit', '>= 1.1.1', '< 2.0.0'
+  gem.add_dependency 'hydra-batch-edit', '~> 1.1'
   gem.add_dependency 'browse-everything', '~> 0.4'
-
   gem.add_dependency 'daemons', '~> 1.1'
-  gem.add_dependency 'mail_form'
+  gem.add_dependency 'mail_form', '~> 1.5'
   gem.add_dependency 'rails_autolink', '~> 1.1'
   gem.add_dependency 'yaml_db', '~> 0.2'
-  gem.add_dependency 'font-awesome-rails'
-  gem.add_dependency 'hydra-editor', '~> 0.3'
-  gem.add_dependency 'hydra-collections', '~> 2.0'
-  gem.add_dependency 'bootstrap_form', '~> 2.1'
-  gem.add_dependency 'bootstrap-sass', '< 3.2'
-  gem.add_dependency 'blacklight-gallery'
-  gem.add_dependency 'breadcrumbs_on_rails', '~>2.3.0'
-  gem.add_dependency 'select2-rails'
+  gem.add_dependency 'font-awesome-rails', '~> 4.2'
+  gem.add_dependency 'hydra-editor', '~> 1.0'
+  gem.add_dependency 'blacklight-gallery', '~> 0.1'
+  gem.add_dependency 'breadcrumbs_on_rails', '~> 2.3.0'
+  gem.add_dependency 'select2-rails', '~> 3.5.9'
+  gem.add_dependency "devise", "~> 3.0"
 
-  gem.add_development_dependency 'engine_cart'
-  gem.add_development_dependency 'mida'
-  gem.add_development_dependency 'database_cleaner'
-  gem.add_development_dependency 'rspec-its'
-  gem.add_development_dependency 'rspec-activemodel-mocks'
-  gem.add_development_dependency "capybara"
+  gem.add_development_dependency 'engine_cart', '~> 0.5'
+  gem.add_development_dependency 'mida', '~> 0.3'
+  gem.add_development_dependency 'database_cleaner', '~> 1.3'
+  gem.add_development_dependency 'rspec-rails', '~> 3.1'
+  gem.add_development_dependency 'rspec-its', '~> 1.1'
+  gem.add_development_dependency 'rspec-activemodel-mocks', '~> 1.0'
+  gem.add_development_dependency "capybara", '~> 2.4'
   gem.add_development_dependency "poltergeist", "~> 1.5"
-  gem.add_development_dependency "factory_girl_rails"
-  gem.add_development_dependency "equivalent-xml"
+  gem.add_development_dependency "factory_girl_rails", '~> 4.4'
+  gem.add_development_dependency "equivalent-xml", '~> 0.5'
 end

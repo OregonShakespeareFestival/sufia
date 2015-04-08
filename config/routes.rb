@@ -99,7 +99,7 @@ Sufia::Engine.routes.draw do
 
   # Batch edit routes
   get 'batches/:id/edit' => 'batch#edit', as: :batch_edit
-  post 'batches/:id/' => 'batch#update', as: :batch_generic_files
+  post 'batches/:id' => 'batch#update', as: :batch_generic_files
 
   # Contact form routes
   post 'contact' => 'contact_form#create', as: :contact_form_index
@@ -117,7 +117,8 @@ Sufia::Engine.routes.draw do
     end
   end
 
-  resources :content_blocks, only: 'update'
+  resources :content_blocks, only: ['create', 'update']
+  get 'featured_researchers' => 'content_blocks#index', as: :featured_researchers
   post '/tinymce_assets' => 'tinymce_assets#create'
 
   get 'about' => 'pages#show', id: 'about_page'

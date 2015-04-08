@@ -4,8 +4,7 @@ describe HomepageController, :type => :controller do
   routes { Rails.application.class.routes }
 
   describe "#index" do
-    before :all do
-      GenericFile.delete_all
+    before do
       @gf1 = GenericFile.new(title:['Test Document PDF'], filename:['test.pdf'], tag:['rocks'], read_groups:['public'])
       @gf1.apply_depositor_metadata('mjg36')
       @gf1.save
@@ -14,22 +13,30 @@ describe HomepageController, :type => :controller do
       @gf2.save
     end
 
-    after :all do
-      @gf1.delete
-      @gf2.delete
-    end
-
     let(:user) { FactoryGirl.find_or_create(:jill) }
     before do
       sign_in user
     end
 
-    it "should set featured researcher" do
-      get :index
-      expect(response).to be_success
-      assigns(:featured_researcher).tap do |researcher|
-        expect(researcher).to be_kind_of ContentBlock
-        expect(researcher.name).to eq 'featured_researcher'
+    context 'with existing featured researcher' do
+      let!(:bilbo) { ContentBlock.create!(name: ContentBlock::RESEARCHER, value: 'Biblo Baggins', created_at: 2.hours.ago) }
+      let!(:frodo) { ContentBlock.create!(name: ContentBlock::RESEARCHER, value: 'Frodo Baggins', created_at: Time.now) }
+
+      it 'finds the featured researcher' do
+        get :index
+        expect(response).to be_success
+        expect(assigns(:featured_researcher)).to eq frodo
+      end
+    end
+
+    context 'with no featured researcher' do
+      it "should set featured researcher" do
+        get :index
+        expect(response).to be_success
+        assigns(:featured_researcher).tap do |researcher|
+          expect(researcher).to be_kind_of ContentBlock
+          expect(researcher.name).to eq 'featured_researcher'
+        end
       end
     end
 
@@ -45,9 +52,16 @@ describe HomepageController, :type => :controller do
     it "should not include other user's private documents in recent documents" do
       get :index
       expect(response).to be_success
-      titles = assigns(:recent_documents).map {|d| d['desc_metadata__title_tesim'][0]}
+      titles = assigns(:recent_documents).map {|d| d['title_tesim'][0]}
       expect(titles).to_not include('Test Private Document')
-    end    
+    end
+
+    it "should include only GenericFile objects in recent documents" do
+      get :index
+      assigns(:recent_documents).each do |doc|
+        expect(doc[Solrizer.solr_name("has_model", :symbol)]).to eql ["GenericFile"]
+      end
+    end 
 
     context "with a document not created this second" do
       before do
@@ -70,6 +84,8 @@ describe HomepageController, :type => :controller do
         create_times = assigns(:recent_documents).map{|d| d['system_create_dtsi']}
         expect(create_times).to eq create_times.sort.reverse
       end
+
+
     end
 
     context "with featured works" do

@@ -6,9 +6,10 @@ module Sufia::UsersControllerBehavior
     layout "sufia-one-column"
     prepend_before_filter :find_user, except: [:index, :search, :notifications_number]
     before_filter :authenticate_user!, only: [:edit, :update, :follow, :unfollow, :toggle_trophy]
-    before_filter :user_is_current_user, only: [:edit, :update, :toggle_trophy]
-
     before_filter :user_not_current_user, only: [:follow, :unfollow]
+    authorize_resource only: [:edit, :update, :toggle_trophy]
+    # Catch permission errors
+    rescue_from CanCan::AccessDenied, with: :deny_access
   end
 
   def index
@@ -41,15 +42,14 @@ module Sufia::UsersControllerBehavior
 
   # Display form for users to edit their profile information
   def edit
-    @user = current_user
     @trophies = @user.trophy_files
   end
 
   # Process changes from profile form
   def update
     if params[:user]
-      @user.update_attributes(params.require(:user).permit(*User.permitted_attributes))
-      @user.populate_attributes if ActiveRecord::ConnectionAdapters::Column.value_to_boolean(params[:user][:update_directory])
+      @user.attributes = user_params
+      @user.populate_attributes if update_directory?
     end
 
     unless @user.save
@@ -65,9 +65,12 @@ module Sufia::UsersControllerBehavior
     redirect_to sufia.profile_path(@user.to_param), notice: "Your profile has been updated"
   end
 
+  def update_directory?
+    ['1', 'true'].include? params[:user][:update_directory]
+  end
+
   def toggle_trophy
-     id = Sufia::Noid.namespaceize params[:file_id]
-     unless current_user.can? :edit, id
+     unless current_user.can? :edit, params[:file_id]
        redirect_to root_path, alert: "You do not have permissions to the file"
        return false
      end
@@ -104,6 +107,14 @@ module Sufia::UsersControllerBehavior
 
   protected
 
+  def user_params
+    params.require(:user).permit(:email, :login, :display_name, :address, :admin_area,
+      :department, :title, :office, :chat_id, :website, :affiliation,
+      :telephone, :avatar, :group_list, :groups_last_update, :facebook_handle,
+      :twitter_handle, :googleplus_handle, :linkedin_handle, :remove_avatar, :orcid)
+  end
+
+
   # You can override base_query to return a list of arguments
   def base_query
     [nil]
@@ -112,10 +123,6 @@ module Sufia::UsersControllerBehavior
   def find_user
     @user = User.from_url_component(params[:id])
     redirect_to root_path, alert: "User '#{params[:id]}' does not exist" if @user.nil?
-  end
-
-  def user_is_current_user
-    redirect_to sufia.profile_path(@user.to_param), alert: "Permission denied: cannot access this page." unless @user == current_user
   end
 
   def user_not_current_user
@@ -130,5 +137,9 @@ module Sufia::UsersControllerBehavior
            else sort
            end
     return sort_val
+  end
+
+  def deny_access(exception)
+    redirect_to sufia.profile_path(@user.to_param), alert: "Permission denied: cannot access this page."
   end
 end

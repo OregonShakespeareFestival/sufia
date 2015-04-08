@@ -31,7 +31,7 @@ describe 'users/show.html.erb', :type => :view do
 
   context "with trophy" do
 
-    let(:generic_file) { GenericFile.new(title: ["Fake object"], pid:"sufia:abc123") }
+    let(:generic_file) { stub_model(GenericFile, title: ["Fake object"], id: "abc123") }
     before do
       allow(view).to receive(:search_session).and_return({})
       allow(view).to receive(:blacklight_config).and_return(CatalogController.blacklight_config)
@@ -43,7 +43,7 @@ describe 'users/show.html.erb', :type => :view do
       render
       page = Capybara::Node::Simple.new(rendered)
       expect(page).to have_selector(".tab-content > div#contributions.tab-pane")
-      expect(page).to have_selector("#trophyrow_#{generic_file.noid}")
+      expect(page).to have_selector("#trophyrow_#{generic_file.id}")
 
     end
   end

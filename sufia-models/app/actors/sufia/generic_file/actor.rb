@@ -15,21 +15,23 @@ module Sufia::GenericFile
     #   create_metadata(batch_id) { |gf| gf.save }
     def create_metadata(batch_id)
       generic_file.apply_depositor_metadata(user)
-      generic_file.date_uploaded = Date.today
-      generic_file.date_modified = Date.today
+      time_in_utc = DateTime.now.new_offset(0)
+      generic_file.date_uploaded = time_in_utc
+      generic_file.date_modified = time_in_utc
       generic_file.creator = [user.name]
 
       if batch_id
-        generic_file.batch_id = Sufia::Noid.namespaceize(batch_id)
+        generic_file.batch_id = batch_id
       else
         ActiveFedora::Base.logger.warn "unable to find batch to attach to"
       end
       yield(generic_file) if block_given?
     end
 
-    def create_content(file, file_name, dsid)
-      fname = generic_file.label.blank? ? file_name.truncate(255) : generic_file.label
-      generic_file.add_file(file, dsid, fname)
+    def create_content(file, file_name, path, mime_type)
+      generic_file.add_file(file, path: path, original_name: file_name, mime_type: mime_type)
+      generic_file.label ||= file_name
+      generic_file.title = [generic_file.label] if generic_file.title.blank?
       save_characterize_and_record_committer do
         if Sufia.config.respond_to?(:after_create_content)
           Sufia.config.after_create_content.call(generic_file, user)
@@ -37,9 +39,9 @@ module Sufia::GenericFile
       end
     end
 
-    def revert_content(revision_id, datastream_id)
-      revision = generic_file.content.get_version(revision_id)
-      generic_file.add_file(revision.content, datastream_id, revision.label)
+    def revert_content(revision_id)
+      generic_file.content.restore_version(revision_id)
+      generic_file.content.create_version
       save_characterize_and_record_committer do
         if Sufia.config.respond_to?(:after_revert_content)
           Sufia.config.after_revert_content.call(generic_file, user, revision_id)
@@ -47,8 +49,8 @@ module Sufia::GenericFile
       end
     end
 
-    def update_content(file, datastream_id)
-      generic_file.add_file(file, datastream_id, file.original_filename)
+    def update_content(file, path)
+      generic_file.add_file(file, path: path, original_name: file.original_filename, mime_type: file.content_type)
       save_characterize_and_record_committer do
         if Sufia.config.respond_to?(:after_update_content)
           Sufia.config.after_update_content.call(generic_file, user)
@@ -57,7 +59,7 @@ module Sufia::GenericFile
     end
 
     def update_metadata(attributes, visibility)
-      generic_file.attributes = generic_file.sanitize_attributes(attributes)
+      generic_file.attributes = attributes
       update_visibility(visibility)
       generic_file.date_modified = DateTime.now
       remove_from_feature_works if generic_file.visibility_changed? && !generic_file.public?
@@ -69,11 +71,10 @@ module Sufia::GenericFile
     end
 
     def destroy
-      pid = generic_file.pid  #Work around for https://github.com/projecthydra/active_fedora/issues/422
       generic_file.destroy
-      FeaturedWork.where(generic_file_id: pid).destroy_all
+      FeaturedWork.where(generic_file_id: generic_file.id).destroy_all
       if Sufia.config.respond_to?(:after_destroy)
-        Sufia.config.after_destroy.call(pid, user)
+        Sufia.config.after_destroy.call(generic_file.id, user)
       end
     end
 
@@ -85,6 +86,7 @@ module Sufia::GenericFile
     end
 
     # Takes an optional block and executes the block if the save was successful.
+    # returns false if the save was unsuccessful
     def save_and_record_committer
       save_tries = 0
       begin
@@ -103,7 +105,7 @@ module Sufia::GenericFile
     end
 
     def push_characterize_job
-      Sufia.queue.push(CharacterizeJob.new(@generic_file.pid))
+      Sufia.queue.push(CharacterizeJob.new(@generic_file.id))
     end
 
     class << self
@@ -126,10 +128,10 @@ module Sufia::GenericFile
       end
 
     private
+
       def remove_from_feature_works
-        featured_work = FeaturedWork.find_by_generic_file_id(generic_file.noid)
+        featured_work = FeaturedWork.find_by_generic_file_id(generic_file.id)
         featured_work.destroy unless featured_work.nil?
       end
-
   end
 end

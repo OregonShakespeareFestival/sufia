@@ -1,13 +1,8 @@
-# Returns an array containing the vhost 'CoSign service' value and URL
 Sufia.config do |config|
-
-  config.fits_to_desc_mapping= {
+  config.fits_to_desc_mapping = {
     file_title: :title,
     file_author: :creator
   }
-
-  # Specify a different template for your repositories unique identifiers
-  # config.noid_template = ".reeddeeddk"
 
   config.max_days_between_audits = 7
 
@@ -93,14 +88,27 @@ Sufia.config do |config|
   # Specify a Google Analytics tracking ID to gather usage statistics
   # config.google_analytics_id = 'UA-99999999-1'
 
+  # Specify a date you wish to start collecting Google Analytic statistics for.
+  # config.analytic_start_date = DateTime.new(2014,9,10)
+
   # Where to store tempfiles, leave blank for the system temp directory (e.g. /tmp)
   # config.temp_file_base = '/home/developer1'
+
+  # Specify the form of hostpath to be used in Endnote exports
+  # config.persistent_hostpath = 'http://localhost/files/'
 
   # If you have ffmpeg installed and want to transcode audio and video uncomment this line
   # config.enable_ffmpeg = true
 
-  # Specify the Fedora pid prefix:
-  # config.id_namespace = "sufia"
+  # Sufia uses NOIDs for files and collections instead of Fedora UUIDs
+  # where NOID = 10-character string and UUID = 32-character string w/ hyphens
+  # config.enable_noids = true
+
+  # Specify a different template for your repository's NOID IDs
+  # config.noid_template = ".reeddeeddk"
+
+  # Specify the prefix for Redis keys:
+  # config.redis_namespace = "sufia"
 
   # Specify the path to the file characterization tool:
   # config.fits_path = "fits.sh"

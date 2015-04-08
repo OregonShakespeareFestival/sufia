@@ -3,10 +3,6 @@ require 'rails/generators'
 class TestAppGenerator < Rails::Generators::Base
   source_root "./spec/test_app_templates"
 
-  # if you need to generate any additional configuration
-  # into the test app, this generator will be run immediately
-  # after setting up the application
-
   def install_engine
     generate 'sufia:install', '-f'
   end
@@ -31,14 +27,4 @@ class TestAppGenerator < Rails::Generators::Base
     gsub_file "config/initializers/sufia.rb",
               "config.analytics = false", "config.analytics = true"
   end
-
-  def add_sufia_assets
-    insert_into_file 'app/assets/stylesheets/application.css', after: ' *= require_self' do
-      "\n *= require sufia"
-    end
-
-    gsub_file 'app/assets/javascripts/application.js',
-              '//= require_tree .', '//= require sufia'
-  end
-    
 end

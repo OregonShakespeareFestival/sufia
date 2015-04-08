@@ -1,39 +1,23 @@
+require 'active_fedora/noid'
+
 module Sufia
   module Noid
     extend ActiveSupport::Concern
 
-    module ClassMethods
-      ## This overrides the default behavior, which is to ask Fedora for a pid
-      # @see ActiveFedora::Sharding.assign_pid
-      def assign_pid(_)
-        Sufia::IdService.mint
-      end
+    ## This overrides the default behavior, which is to ask Fedora for an id
+    # @see ActiveFedora::Persistence.assign_id
+    def assign_id
+      service.mint if Sufia.config.enable_noids
     end
 
-    def noid
-      Noid.noidify(self.pid)
-    end
-
-    # Redefine this for more intuitive keys in Redis
     def to_param
-      noid
+      id
     end
 
-    class << self
-      def noidify(identifier)
-        String(identifier).split(":").last
-      end
+    private
 
-      def namespaceize(identifier)
-        return identifier if identifier.include?(':')
-        "#{namespace}:#{identifier}"
+      def service
+        @service ||= ActiveFedora::Noid::Service.new
       end
-
-      protected
-
-      def namespace
-        Sufia.config.id_namespace
-      end
-    end
   end
 end

@@ -3,16 +3,11 @@ module Sufia
     extend ActiveSupport::Concern
     include Hydra::Controller::DownloadBehavior
 
-    included do
-      # moved check into the routine so we can handle the user with no access
-      prepend_before_filter :normalize_identifier
-    end
-
-    def datastream_name
-      if datastream.dsid == self.class.default_content_dsid
+    def file_name
+      if !params[:file] || params[:file] == self.class.default_file_path
         params[:filename] || asset.label
       else
-        params[:datastream_id]
+        params[:file]
       end
     end
   end

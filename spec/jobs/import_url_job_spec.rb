@@ -7,23 +7,19 @@ describe ImportUrlJob do
   let(:file_hash)  {'/673467823498723948237462429793840923582'}
 
   let(:generic_file) do
-    GenericFile.new.tap do |f|
+    GenericFile.create do |f|
       f.import_url = "http://example.org#{file_hash}"
       f.label = file_path
       f.apply_depositor_metadata(user.user_key)
-      f.save
     end
   end
 
   let(:mock_response) do
     double('response').tap do |http_res|
       allow(http_res).to receive(:start).and_yield
-       allow(http_res).to receive(:read_body).and_yield(File.open(File.expand_path('../../fixtures/world.png', __FILE__)).read)
+      allow(http_res).to receive(:content_type).and_return('image/png')
+      allow(http_res).to receive(:read_body).and_yield(File.open(File.expand_path('../../fixtures/world.png', __FILE__)).read)
     end
-  end
-
-  after do
-    generic_file.destroy
   end
 
   subject(:job) { ImportUrlJob.new(generic_file.id) }
@@ -49,7 +45,6 @@ describe ImportUrlJob do
       expect_any_instance_of(Net::HTTP).to receive(:request_get).with(file_hash).and_yield(mock_response)
       job.run
       expect(generic_file.reload.content.size).to eq 4218
-      expect(generic_file.content.dsLabel).to eq file_path
       expect(user.mailbox.inbox.first.last_message.body).to eq("The file (#{file_path}) was successfully imported.")
     end
   end
