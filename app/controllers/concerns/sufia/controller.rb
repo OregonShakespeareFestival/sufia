@@ -12,10 +12,6 @@ module Sufia::Controller
     user_signed_in? ? current_user.ability : super
   end
 
-  def normalize_identifier
-    params[:id] = Sufia::Noid.namespaceize(params[:id])
-  end
-
   def render_404(exception)
     logger.error("Rendering 404 page due to exception: #{exception.inspect} - #{exception.backtrace if exception.respond_to? :backtrace}")
     render template: '/error/404', layout: "error", formats: [:html], status: 404
@@ -37,7 +33,7 @@ module Sufia::Controller
     return if action_name == "index" && controller_name == "mailbox"
     if user_signed_in?
       @notify_number = current_user.mailbox.inbox(unread: true).count
-      @batches = current_user.mailbox.inbox.map { |msg| msg.last_message.body[/<span id="(.*)"><a (href=|data-content=)(.*)/,1] }.select{ |val| !val.blank? }
+      @batches = current_user.mailbox.inbox.map { |msg| msg.last_message.body[/<span id="(.*)"><a (href=|data-content=|rel=)(.*)/,1] }.select{ |val| !val.blank? }
     end
   end
 

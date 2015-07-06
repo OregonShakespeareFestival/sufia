@@ -7,10 +7,10 @@ describe "Create and use single-use links", :type => :feature do
 
   let(:user) { FactoryGirl.find_or_create(:jill) }
   let(:file) do
-    GenericFile.new.tap do |f|
-      f.add_file(File.open(fixture_path + '/world.png'), 'content', 'world.png')
+    GenericFile.create do |f|
+      f.add_file(File.open(fixture_path + '/world.png'), path: 'content', original_name: 'world.png')
+      f.label = 'world.png'
       f.apply_depositor_metadata(user)
-      f.save
     end
   end
 
@@ -40,7 +40,7 @@ describe "Create and use single-use links", :type => :feature do
       visit generate_download_single_use_link_path(id: file)
       expect(page).to have_css '.download-link'
       find('.download-link').click
-      expected_content = ActiveFedora::Base.find(file.pid, cast: true).content.content
+      expected_content = ActiveFedora::Base.find(file.id).content.content
       expect(page.source).to eq expected_content
     end
   end

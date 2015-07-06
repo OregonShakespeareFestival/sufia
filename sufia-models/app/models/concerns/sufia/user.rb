@@ -1,3 +1,5 @@
+require 'oauth'
+
 module Sufia::User
   extend ActiveSupport::Concern
 
@@ -18,33 +20,82 @@ module Sufia::User
     # Users should be followable
     acts_as_followable
 
-    # Setup accessible (or protected) attributes for your model
+    # Set up proxy-related relationships
     has_many :proxy_deposit_requests, foreign_key: 'receiving_user_id'
-
     has_many :deposit_rights_given, foreign_key: 'grantor_id', class_name: 'ProxyDepositRights', dependent: :destroy
     has_many :can_receive_deposits_from, through: :deposit_rights_given, source: :grantee
-
     has_many :deposit_rights_received, foreign_key: 'grantee_id', class_name: 'ProxyDepositRights', dependent: :destroy
     has_many :can_make_deposits_for, through: :deposit_rights_received, source: :grantor
 
+    # Validate and normalize ORCIDs
+    validates_with OrcidValidator
+    after_validation :normalize_orcid
+
+    # Set up user profile avatars
     mount_uploader :avatar, AvatarUploader, mount_on: :avatar_file_name
     validates_with AvatarValidator
+
+    # Add token to authenticate Arkivo API calls
+    after_initialize :set_arkivo_token, unless: :persisted? if Sufia.config.arkivo_api
+
     has_many :trophies
     attr_accessor :update_directory
+  end
+
+  def zotero_token
+    self[:zotero_token].blank? ? nil : Marshal::load(self[:zotero_token])
+  end
+
+  def zotero_token=(value)
+    if value.blank?
+      # Resetting the token
+      self[:zotero_token] = value
+    else
+      self[:zotero_token] = Marshal::dump(value)
+    end
+  end
+
+  def set_arkivo_token
+    self.arkivo_token ||= token_algorithm
+  end
+
+  def token_algorithm
+    loop do
+      token = SecureRandom.base64(24)
+      return token if User.find_by(arkivo_token: token).nil?
+    end
+  end
+
+  # Coerce the ORCID into URL format
+  def normalize_orcid
+    # Skip normalization if:
+    #   1. validation has already flagged the ORCID as invalid
+    #   2. the orcid field is blank
+    #   3. the orcid is already in its normalized form
+    return if self.errors[:orcid].first.present? || self.orcid.blank? || self.orcid.starts_with?('http://orcid.org/')
+    bare_orcid = Sufia::OrcidValidator.match(self.orcid).string
+    self.orcid = "http://orcid.org/#{bare_orcid}"
   end
 
   # Format the json for select2 which requires just an id and a field called text.
   # If we need an alternate format we should probably look at a json template gem
   def as_json(opts = nil)
-    {id: user_key, text: display_name ? "#{display_name} (#{user_key})" : user_key}
+    { id: user_key, text: display_name ? "#{display_name} (#{user_key})" : user_key }
+  end
+
+  # Populate user instance with attributes from remote system (e.g., LDAP)
+  # There is no default implementation -- override this in your application
+  def populate_attributes
   end
 
   def email_address
-    return self.email
+    self.email
   end
 
   def name
-    return self.display_name.titleize || self.user_key rescue self.user_key
+    self.display_name.titleize || raise
+  rescue
+    self.user_key
   end
 
   # Redefine this for more intuitive keys in Redis
@@ -55,13 +106,18 @@ module Sufia::User
 
   def trophy_files
     trophies.map do |t|
-      ::GenericFile.load_instance_from_solr(Sufia::Noid.namespaceize(t.generic_file_id))
-    end
+      begin
+        ::GenericFile.load_instance_from_solr(t.generic_file_id)
+      rescue ActiveFedora::ObjectNotFoundError
+        logger.error("Invalid trophy for user #{user_key} (generic file id #{t.generic_file_id})")
+        nil
+      end
+    end.compact
   end
 
   # method needed for messaging
   def mailboxer_email(obj=nil)
-    return nil
+    nil
   end
 
   # The basic groups method, override or will fallback to Sufia::Ldap::User
@@ -80,14 +136,6 @@ module Sufia::User
   end
 
   module ClassMethods
-
-    def permitted_attributes
-      [:email, :login, :display_name, :address, :admin_area,
-        :department, :title, :office, :chat_id, :website, :affiliation,
-        :telephone, :avatar, :group_list, :groups_last_update, :facebook_handle,
-        :twitter_handle, :googleplus_handle, :linkedin_handle, :remove_avatar]
-    end
-
     def current
       Thread.current[:user]
     end
@@ -119,7 +167,5 @@ module Sufia::User
     def from_url_component(component)
       User.find_by_user_key(component.gsub(/-dot-/, '.'))
     end
-
   end
-
 end

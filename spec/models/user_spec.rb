@@ -1,72 +1,131 @@
 require 'spec_helper'
 
 describe User, :type => :model do
-  before(:all) do
-    @user = FactoryGirl.find_or_create(:jill)
-    @another_user = FactoryGirl.find_or_create(:archivist)
-  end
-  after(:all) do
-    @user.delete
-    @another_user.delete
-  end
+  let(:user) { FactoryGirl.build(:user) }
+  let(:another_user) { FactoryGirl.build(:user) }
+
   it "should have an email" do
-    expect(@user.user_key).to eq("jilluser@example.com")
+    expect(user.user_key).to be_kind_of String
   end
   it "should have activity stream-related methods defined" do
-    expect(@user).to respond_to(:stream)
-    expect(@user).to respond_to(:events)
-    expect(@user).to respond_to(:profile_events)
-    expect(@user).to respond_to(:create_event)
-    expect(@user).to respond_to(:log_event)
-    expect(@user).to respond_to(:log_profile_event)
+    expect(user).to respond_to(:stream)
+    expect(user).to respond_to(:events)
+    expect(user).to respond_to(:profile_events)
+    expect(user).to respond_to(:create_event)
+    expect(user).to respond_to(:log_event)
+    expect(user).to respond_to(:log_profile_event)
   end
   it "should have social attributes" do
-    expect(@user).to respond_to(:twitter_handle)
-    expect(@user).to respond_to(:facebook_handle)
-    expect(@user).to respond_to(:googleplus_handle)
-    expect(@user).to respond_to(:linkedin_handle)
+    expect(user).to respond_to(:twitter_handle)
+    expect(user).to respond_to(:facebook_handle)
+    expect(user).to respond_to(:googleplus_handle)
+    expect(user).to respond_to(:linkedin_handle)
+    expect(user).to respond_to(:orcid)
   end
-  it "should redefine to_param to make redis keys more recognizable (and useable within Rails URLs)" do
-    expect(@user.to_param).to eq("jilluser@example-dot-com")
+
+  describe 'Arkivo and Zotero integration' do
+    it 'sets an Arkivo token after_initialize if API is enabled' do
+      expect(User.new).to respond_to(:arkivo_token)
+    end
+
+    describe 'Arkivo token generation' do
+      before do
+        allow(SecureRandom).to receive(:base64).with(24).and_return(token1, token1, token2)
+      end
+
+      let(:token1) { 'token1' }
+      let(:token2) { 'token2' }
+
+      it 'generates a new token if a user is found with the existing token' do
+        user1 = User.create(email: 'foo@example.org', password: 'foobarbaz')
+        expect(user1.arkivo_token).to eq token1
+        user2 = User.create(email: 'bar@example.org', password: 'bazquuxquuux')
+        expect(user2.arkivo_token).to eq token2
+      end
+    end
+
+    describe 'Zotero tokens' do
+      let(:token) { 'something' }
+
+      it 'has a custom getter/setter for Zotero request tokens' do
+        user.zotero_token = token
+        expect(user.read_attribute(:zotero_token)).to eq Marshal::dump(token)
+        expect(user.zotero_token).to eq token
+      end
+    end
   end
+
+  describe 'ORCID validation and normalization' do
+    it 'saves when a valid bare ORCID is supplied' do
+      user.orcid = '0000-0000-1111-2222'
+      expect(user).to be_valid
+      expect(user.save).to be true
+    end
+    it 'saves when an ORCID with a non-numeric check digit is provided' do
+      user.orcid = 'http://orcid.org/0000-0000-1111-222X'
+      expect(user).to be_valid
+      expect(user.save).to be true
+    end
+    it 'saves when a valid ORCID URI is supplied' do
+      user.orcid = 'http://orcid.org/0000-0000-1111-2222'
+      expect(user).to be_valid
+      expect(user.save).to be true
+    end
+    it 'normalizes bare ORCIDs to URIs' do
+      user.orcid = '0000-0000-1111-2222'
+      user.save
+      expect(user.orcid).to eq 'http://orcid.org/0000-0000-1111-2222'
+    end
+    it 'marks bad ORCIDs as invalid' do
+      user.orcid = '000-000-111-222'
+      expect(user).not_to be_valid
+      expect(user.save).to be false
+    end
+  end
+
+  describe "#to_param" do
+    let(:user) { User.new(email: 'jilluser@example.com') }
+
+    it "should override to_param to make keys more recognizable in redis (and useable within Rails URLs)" do
+      expect(user.to_param).to eq("jilluser@example-dot-com")
+    end
+  end
+
   it "should have a cancan ability defined" do
-    expect(@user).to respond_to(:can?)
+    expect(user).to respond_to(:can?)
   end
   it "should not have any followers" do
-    expect(@user.followers_count).to eq(0)
-    expect(@another_user.follow_count).to eq(0)
+    expect(user.followers_count).to eq(0)
+    expect(another_user.follow_count).to eq(0)
   end
   describe "follow/unfollow" do
-    before(:all) do
-      @user = FactoryGirl.find_or_create(:jill)
-      @another_user = FactoryGirl.find_or_create(:archivist)
-      @user.follow(@another_user)
+    let(:user) { FactoryGirl.create(:user) }
+    let(:another_user) { FactoryGirl.create(:user) }
+    before do
+      user.follow(another_user)
     end
-    after do
-      @user.delete
-      @another_user.delete
-    end
+
     it "should be able to follow another user" do
-      expect(@user).to be_following(@another_user)
-      expect(@another_user).to_not be_following(@user)
-      expect(@another_user).to be_followed_by(@user)
-      expect(@user).to_not be_followed_by(@another_user)
+      expect(user).to be_following(another_user)
+      expect(another_user).to_not be_following(user)
+      expect(another_user).to be_followed_by(user)
+      expect(user).to_not be_followed_by(another_user)
     end
     it "should be able to unfollow another user" do
-      @user.stop_following(@another_user)
-      expect(@user).to_not be_following(@another_user)
-      expect(@another_user).to_not be_followed_by(@user)
+      user.stop_following(another_user)
+      expect(user).to_not be_following(another_user)
+      expect(another_user).to_not be_followed_by(user)
     end
   end
 
   describe "trophy_files" do
-    let(:user) { @user }
-    let(:file1) { GenericFile.new.tap { |f| f.apply_depositor_metadata(user); f.save! } }
-    let(:file2) { GenericFile.new.tap { |f| f.apply_depositor_metadata(user); f.save! } }
-    let(:file3) { GenericFile.new.tap { |f| f.apply_depositor_metadata(user); f.save! } }
-    let!(:trophy1) { user.trophies.create!(generic_file_id: file1.noid) }
-    let!(:trophy2) { user.trophies.create!(generic_file_id: file2.noid) }
-    let!(:trophy3) { user.trophies.create!(generic_file_id: file3.noid) }
+    let(:user) { FactoryGirl.create(:user) }
+    let(:file1) { GenericFile.create { |f| f.apply_depositor_metadata(user) } }
+    let(:file2) { GenericFile.create { |f| f.apply_depositor_metadata(user) } }
+    let(:file3) { GenericFile.create { |f| f.apply_depositor_metadata(user) } }
+    let!(:trophy1) { user.trophies.create!(generic_file_id: file1.id) }
+    let!(:trophy2) { user.trophies.create!(generic_file_id: file2.id) }
+    let!(:trophy3) { user.trophies.create!(generic_file_id: file3.id) }
 
     it "should return a list of generic files" do
       expect(user.trophy_files).to eq [file1, file2, file3]
@@ -75,8 +134,7 @@ describe User, :type => :model do
   end
 
   describe "activity streams" do
-    let(:now){DateTime.now.to_i}
-    let(:user) { @user }
+    let(:now) { DateTime.now.to_i }
     let(:activities) {
         [{ action: 'so and so edited their profile', timestamp: now },
         { action: 'so and so uploaded a file', timestamp: (now - 360 ) }]
@@ -101,19 +159,17 @@ describe User, :type => :model do
   describe "proxy_deposit_rights" do
     before do
       @subject = FactoryGirl.create :curator
-      @user1 = FactoryGirl.create :jill
-      @user2 = FactoryGirl.create :archivist
-      @subject.can_receive_deposits_from << @user1
-      @subject.can_make_deposits_for << @user2
+      @subject.can_receive_deposits_from << user
+      @subject.can_make_deposits_for << another_user
       @subject.save!
     end
     it "can_receive_deposits_from" do
-      expect(@subject.can_receive_deposits_from.to_a).to eq [@user1]
-      expect(@user1.can_make_deposits_for.to_a).to eq [@subject]
+      expect(@subject.can_receive_deposits_from.to_a).to eq [user]
+      expect(user.can_make_deposits_for.to_a).to eq [@subject]
     end
     it "can_make_deposits_for" do
-      expect(@subject.can_make_deposits_for.to_a).to eq [@user2]
-      expect(@user2.can_receive_deposits_from.to_a).to eq [@subject]
+      expect(@subject.can_make_deposits_for.to_a).to eq [another_user]
+      expect(another_user.can_receive_deposits_from.to_a).to eq [@subject]
     end
   end
 end

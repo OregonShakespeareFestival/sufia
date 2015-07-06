@@ -1,5 +1,4 @@
 Sufia::Engine.routes.draw do
-
   # Downloads controller route
   resources :homepage, only: 'index'
 
@@ -99,12 +98,27 @@ Sufia::Engine.routes.draw do
 
   # Batch edit routes
   get 'batches/:id/edit' => 'batch#edit', as: :batch_edit
-  post 'batches/:id/' => 'batch#update', as: :batch_generic_files
+  post 'batches/:id' => 'batch#update', as: :batch_generic_files
 
   # Contact form routes
   post 'contact' => 'contact_form#create', as: :contact_form_index
   get 'contact' => 'contact_form#new'
 
+  # API routes
+  if Sufia.config.arkivo_api
+    namespace :api do
+      if defined?(Sufia::ArkivoConstraint)
+        constraints Sufia::ArkivoConstraint do
+          resources :items, except: [:index, :edit, :new], defaults: { format: :json }
+        end
+      end
+
+      get 'zotero' => 'zotero#initiate', as: :zotero_initiate
+      get 'zotero/callback' => 'zotero#callback', as: :zotero_callback
+    end
+  end
+
+  # Collections routes
   mount Hydra::Collections::Engine => '/'
 
   # Resque monitoring routes. Don't bother with this route unless Sufia::ResqueAdmin
@@ -117,7 +131,16 @@ Sufia::Engine.routes.draw do
     end
   end
 
-  resources :content_blocks, only: 'update'
+  if defined?(Sufia::StatsAdmin)
+    namespace :admin do
+      constraints Sufia::StatsAdmin do
+        get 'stats' => 'stats#index', as: :stats
+      end
+    end
+  end
+
+  resources :content_blocks, only: ['create', 'update']
+  get 'featured_researchers' => 'content_blocks#index', as: :featured_researchers
   post '/tinymce_assets' => 'tinymce_assets#create'
 
   get 'about' => 'pages#show', id: 'about_page'

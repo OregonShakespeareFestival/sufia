@@ -3,16 +3,16 @@ require 'rails/generators'
 class TestAppGenerator < Rails::Generators::Base
   source_root "./spec/test_app_templates"
 
-  # if you need to generate any additional configuration
-  # into the test app, this generator will be run immediately
-  # after setting up the application
-
   def install_engine
     generate 'sufia:install', '-f'
   end
 
   def browse_everything_config
     generate "browse_everything:config"
+  end
+
+  def banner
+    say_status("info", "TEST ENVIRONMENT OVERRIDES", :blue)
   end
 
   def add_analytics_config
@@ -32,13 +32,11 @@ class TestAppGenerator < Rails::Generators::Base
               "config.analytics = false", "config.analytics = true"
   end
 
-  def add_sufia_assets
-    insert_into_file 'app/assets/stylesheets/application.css', after: ' *= require_self' do
-      "\n *= require sufia"
-    end
-
-    gsub_file 'app/assets/javascripts/application.js',
-              '//= require_tree .', '//= require sufia'
+  def enable_arkivo_api
+    generate 'sufia:models:arkivo_api'
   end
-    
+
+  def relax_routing_constraint
+    gsub_file 'config/initializers/arkivo_constraint.rb', 'false', 'true'
+  end
 end

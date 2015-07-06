@@ -8,6 +8,9 @@ require "sufia/version"
 require 'blacklight'
 require 'blacklight_advanced_search'
 require 'sufia/models'
+require 'sufia/inflections'
+require 'sufia/arkivo'
+require 'sufia/zotero'
 
 require 'rails_autolink'
 require 'font-awesome-rails'
@@ -16,6 +19,10 @@ require 'tinymce-rails-imageupload'
 
 module Sufia
   extend ActiveSupport::Autoload
+
+  eager_autoload do
+    autoload :FormBuilder
+  end
 
   class Engine < ::Rails::Engine
     engine_name 'sufia'
@@ -26,15 +33,12 @@ module Sufia
     config.autoload_paths += %W(
       #{config.root}/app/controllers/concerns
       #{config.root}/app/models/concerns
-      #{config.root}/app/models/datastreams
       #{Hydra::Engine.root}/app/models/concerns
     )
 
     config.assets.paths << config.root.join('vendor', 'assets', 'fonts')
     config.assets.precompile << %r(vjs\.(?:eot|ttf|woff)$)
-    config.assets.precompile += %w( fontawesome-webfont.woff )
-    config.assets.precompile += %w( fontawesome-webfont.ttf )
-    config.assets.precompile += %w( fontawesome-webfont.svg )
+    config.assets.precompile << %r(fontawesome-webfont\.(?:svg|ttf|woff)$)
     config.assets.precompile += %w( ZeroClipboard.swf )
   end
 end

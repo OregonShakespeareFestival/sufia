@@ -3,24 +3,34 @@ class Batch < ActiveFedora::Base
   include Sufia::ModelMethods
   include Sufia::Noid
 
-  has_metadata name: "descMetadata", type: BatchRdfDatastream
+  has_many :generic_files, predicate: ActiveFedora::RDF::Fcrepo::RelsExt.isPartOf
 
-  belongs_to :user, property: "creator"
-  has_many :generic_files, property: :is_part_of
+  property :creator, predicate: ::RDF::DC.creator
+  property :title, predicate: ::RDF::DC.title
+  property :status, predicate: ::RDF::DC.type
 
-  has_attributes :title, :creator, :part, :status, datastream: :descMetadata, multiple: true
-
-  def self.find_or_create(pid)
+  def self.find_or_create(id)
     begin
-      Batch.find(pid)
+      Batch.find(id)
     rescue ActiveFedora::ObjectNotFoundError
-      Batch.create({pid: pid})
+      safe_create(id)
     end
   end
 
-  def to_solr(solr_doc={}, opts={})
-    solr_doc = super(solr_doc, opts)
-    solr_doc[Solrizer.solr_name('noid', Sufia::GenericFile.noid_indexer)] = noid
-    return solr_doc
-  end
+  private
+
+    # This method handles most race conditions gracefully. 
+    # If a batch with the same ID is created by another thread
+    # we fetch the batch that was created (rather than throwing
+    # an error) and continute.
+    def self.safe_create(id)
+      begin      
+        Batch.create(id: id)
+      rescue ActiveFedora::IllegalOperation
+        # This is the exception thrown by LDP when we attempt to 
+        # create a duplicate object. If we can find the object
+        # then we are good to go.
+        Batch.find(id)
+      end
+    end
 end

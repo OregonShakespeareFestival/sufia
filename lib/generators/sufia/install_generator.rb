@@ -15,12 +15,19 @@ module Sufia
    3. Adds controller behavior to the application controller
    4. Copies the catalog controller into the local app
    5. Adds Sufia::SolrDocumentBehavior to app/models/solr_document.rb
+   6. Installs Blacklight gallery
          """
 
     def run_required_generators
+      say_status("info", "GENERATING BLACKLIGHT", :blue)
       generate "blacklight:install --devise"
+      say_status("info", "GENERATING HYDRA", :blue)
       generate "hydra:head -f"
       generate "sufia:models:install"
+    end
+
+    def banner
+      say_status("info", "GENERATING SUFIA", :blue)
     end
 
     def insert_abilities
@@ -35,7 +42,7 @@ module Sufia
       file_path = "app/controllers/application_controller.rb"
       if File.exists?(file_path)
         insert_into_file file_path, after: 'include Blacklight::Controller' do
-          "  \n# Adds Sufia behaviors into the application controller \n" +
+          "  \n# Adds Sufia behaviors into the application controller (#{controller_name}) \n" +
           "  include Sufia::Controller\n"
         end
         gsub_file file_path, "layout 'blacklight'", "layout 'sufia-one-column'"
@@ -56,13 +63,22 @@ module Sufia
       remove_file 'app/assets/stylesheets/blacklight.css.scss'
     end
 
+    def add_sufia_assets
+      insert_into_file 'app/assets/stylesheets/application.css', after: ' *= require_self' do
+        "\n *= require sufia"
+      end
+
+      gsub_file 'app/assets/javascripts/application.js',
+                '//= require_tree .', '//= require sufia'
+    end
+
     def tinymce_config
       copy_file "config/tinymce.yml", "config/tinymce.yml"
     end
 
     # The engine routes have to come after the devise routes so that /users/sign_in will work
     def inject_routes
-      gsub_file 'config/routes.rb', 'root :to => "catalog#index"', ''
+      gsub_file 'config/routes.rb',  /root (:to =>|to:) "catalog#index"/, ''
 
       routing_code = "\n  Hydra::BatchEdit.add_routes(self)\n" +
         "  # This must be the very last route in the file because it has a catch-all route for 404 errors.
@@ -85,5 +101,18 @@ module Sufia
         puts "     \e[31mFailure\e[0m  Sufia requires a SolrDocument object. This generators assumes that the model is defined in the file #{file_path}, which does not exist."
       end
     end
+
+    def install_sufia_600
+      generate "sufia:upgrade600"
+    end
+
+    def install_blacklight_gallery
+      generate "blacklight_gallery:install"
+    end
+
+    def install_admin_stats
+      generate "sufia:admin_stat"
+    end
+
   end
 end

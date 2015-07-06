@@ -42,26 +42,26 @@ describe SufiaHelper, :type => :helper do
 
   describe "sufia_thumbnail_tag" do
     context "for an image object" do
-      let(:document) { SolrDocument.new( mime_type_tesim: 'image/jpeg', noid_tsi: '1234') }
+      let(:document) { SolrDocument.new( mime_type_tesim: 'image/jpeg', id: '1234' ) }
       it "should show the audio thumbnail" do
         rendered = helper.sufia_thumbnail_tag(document, { width: 90 })
-        expect(rendered).to match /src="\/downloads\/1234\?datastream_id=thumbnail"/
-        expect(rendered).to match /width="90"/
+        expect(rendered).to match(/src="\/downloads\/1234\?file=thumbnail"/)
+        expect(rendered).to match(/width="90"/)
       end
     end
     context "for an audio object" do
-      let(:document) { SolrDocument.new( mime_type_tesim: 'audio/x-wave') }
+      let(:document) { SolrDocument.new( mime_type_tesim: 'audio/x-wave', id: '1234') }
       it "should show the audio thumbnail" do
         rendered = helper.sufia_thumbnail_tag(document, {})
-        expect(rendered).to match /src="\/assets\/audio.png"/
+        expect(rendered).to match(/src="\/assets\/audio.png"/)
       end
     end
     context "for an document object" do
-      let(:document) { SolrDocument.new( mime_type_tesim: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', noid_tsi: '1234') }
+      let(:document) { SolrDocument.new( mime_type_tesim: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', id: '1234') }
       it "should show the default thumbnail" do
         rendered = helper.sufia_thumbnail_tag(document, { width: 90 })
-        expect(rendered).to match /src="\/downloads\/1234\?datastream_id=thumbnail"/
-        expect(rendered).to match /width="90"/
+        expect(rendered).to match(/src="\/downloads\/1234\?file=thumbnail"/)
+        expect(rendered).to match(/width="90"/)
       end
     end
   end
@@ -72,7 +72,7 @@ describe SufiaHelper, :type => :helper do
       @user = mock_model(User)
       allow(@user).to receive(:telephone).and_return('867-5309')
     end
-    
+
     context "when @user is set" do
       it "should return a link to the user's telephone" do
         expect(helper.link_to_telephone).to eq("<a href=\"wtai://wp/mc;867-5309\">867-5309</a>")
@@ -84,7 +84,7 @@ describe SufiaHelper, :type => :helper do
         expect(helper.link_to_telephone(@user)).to eq("<a href=\"wtai://wp/mc;867-5309\">867-5309</a>")
       end
     end
-  
+
   end
 
   describe "#current_search_parameters" do
@@ -160,6 +160,39 @@ describe SufiaHelper, :type => :helper do
         allow(helper).to receive(:params).and_return({ controller: "my/shares" })
         expect(helper.search_form_action).to eq(sufia.dashboard_shares_path)
       end
+    end
+
+  end
+
+  describe '#zotero_label' do
+    subject { helper }
+
+    it { is_expected.to respond_to(:zotero_label) }
+  end
+
+  describe "#number_of_deposits" do
+    let(:conn) { ActiveFedora::SolrService.instance.conn }
+    let(:user1) { User.new(email: "abc@test") }
+    let(:user2) { User.new(email: "abc@test.123") }
+    before do
+      create_models("Collection", user1, user2)
+    end
+
+    it "finds only 3 files" do
+      expect(helper.number_of_deposits(user1)).to eq(3)
+    end
+
+    def create_models (model, user1, user2)
+      # deposited by the first user
+      3.times do |t|
+        conn.add  id: "199#{t}", Solrizer.solr_name('depositor', :stored_searchable) => user1.user_key, "has_model_ssim"=>[model],
+            Solrizer.solr_name('depositor', :symbol) => user1.user_key
+      end
+
+      # deposited by the second user, but editable by the first
+      conn.add  id: "1994", Solrizer.solr_name('depositor', :stored_searchable) => user2.user_key, "has_model_ssim"=>[model],
+          Solrizer.solr_name('depositor', :symbol) => user2.user_key, "edit_access_person_ssim" =>user1.user_key
+      conn.commit
     end
 
   end

@@ -38,20 +38,33 @@ module Sufia
       before_filter :authenticate_user!, except: [:show, :citation, :stats]
       before_filter :has_access?, except: [:show]
       before_filter :build_breadcrumbs, only: [:show, :edit, :stats]
-      prepend_before_filter :normalize_identifier, except: [:index, :create, :new]
       load_resource only: [:audit]
-      load_and_authorize_resource except: [:index, :audit]
+      load_and_authorize_resource except: [:index, :audit, :show]
+
+      # since we are only displaying data we are makingthe show action fast by loading the information from solr
+      # these two steps replace load_and_authorize_resource for the show action
+      before_filter :load_resource_from_solr, only: [:show]
+      authorize_resource only: [:show]
+
+      class_attribute :edit_form_class, :presenter_class
+      self.edit_form_class = Sufia::Forms::GenericFileEditForm
+      self.presenter_class = Sufia::GenericFilePresenter
+    end
+
+    # Load the GenericFile from solr instead of fedora
+    # this replaces the load_resource from CanCan that is usually called by load_and_authorize_resource
+    def load_resource_from_solr
+      @generic_file = ::GenericFile.load_instance_from_solr(params[:id])
     end
 
     # routed to /files/new
     def new
-      @batch_noid = Sufia::Noid.noidify(Sufia::IdService.mint)
+      @batch_id = ActiveFedora::Noid::Service.new.mint
     end
 
     # routed to /files/:id/edit
     def edit
-      @generic_file.initialize_fields
-      @groups = current_user.groups
+      set_variables_for_edit_form
     end
 
     # routed to /files/:id/stats
@@ -102,6 +115,8 @@ module Sufia
       respond_to do |format|
         format.html {
           @events = @generic_file.events(100)
+          @presenter = presenter
+          @audit_status = audit_service.human_readable_audit_status
         }
         format.endnote { render text: @generic_file.export_as_endnote }
       end
@@ -109,35 +124,65 @@ module Sufia
 
     # routed to /files/:id/audit (POST)
     def audit
-      render json: @generic_file.audit
+      render json: audit_service.audit
     end
 
     # routed to /files/:id (PUT)
     def update
-      success = if wants_to_revert?
-        update_version
-      elsif params.has_key? :filedata
-        update_file
-      elsif params.has_key? :generic_file
-        update_metadata
-      end
+      success =
+        if wants_to_revert?
+          update_version
+        elsif wants_to_upload_new_version?
+          update_file
+        elsif params.has_key? :generic_file
+          update_metadata
+        elsif params.has_key? :visibility
+          update_visibility
+        end
 
       if success
         redirect_to sufia.edit_generic_file_path(tab: params[:redirect_tab]), notice:
           render_to_string(partial: 'generic_files/asset_updated_flash', locals: { generic_file: @generic_file })
       else
+        flash[:error] ||= 'Update was unsuccessful.'
+        set_variables_for_edit_form
         render action: 'edit'
       end
-    rescue => error
-      flash[:error] = error.message
-      logger.error "GenericFilesController::update rescued #{error.class}\n\t#{error.message}\n #{error.backtrace.join("\n")}\n\n"
-      render action: 'edit'
     end
 
     protected
 
+    def set_variables_for_edit_form
+      @form = edit_form
+      @groups = current_user.groups
+      @version_list = version_list
+    end
+
+    def presenter
+      presenter_class.new(@generic_file)
+    end
+
+    def version_list
+      Sufia::VersionListPresenter.new(@generic_file.content.versions.all)
+    end
+
+    def edit_form
+      edit_form_class.new(@generic_file)
+    end
+
+    def audit_service
+      Sufia::GenericFileAuditService.new(@generic_file)
+    end
+
     def wants_to_revert?
-      params.has_key?(:revision) && params[:revision] != @generic_file.content.latest_version.versionID
+      params.has_key?(:revision) && params[:revision] != @generic_file.content.latest_version.label
+    end
+
+    def wants_to_upload_new_version?
+      has_file_data = params.has_key?(:filedata)
+      on_version_tab = params[:redirect_tab] == 'versions'
+
+      has_file_data || (on_version_tab && !wants_to_revert?)
     end
 
     def actor
@@ -145,16 +190,26 @@ module Sufia
     end
 
     def update_version
-      actor.revert_content(params[:revision], datastream_id)
+      actor.revert_content(params[:revision])
     end
 
     def update_file
-      actor.update_content(params[:filedata], datastream_id)
+      if params[:filedata]
+        actor.update_content(params[:filedata], file_path)
+      else
+        flash[:error] = 'Please select a file.'
+        false
+      end
     end
 
     # this is provided so that implementing application can override this behavior and map params to different attributes
     def update_metadata
-      actor.update_metadata(params[:generic_file], params[:visibility])
+      file_attributes = edit_form_class.model_attributes(params[:generic_file])
+      actor.update_metadata(file_attributes, params[:visibility])
+    end
+
+    def update_visibility
+      actor.update_metadata({}, params[:visibility])
     end
 
     def json_error(error, name=nil, additional_arguments={})
@@ -168,17 +223,18 @@ module Sufia
     end
 
     def process_file(file)
+
+      Batch.find_or_create(params[:batch_id])
+
       update_metadata_from_upload_screen
       actor.create_metadata(params[:batch_id])
-      if actor.create_content(file, file.original_filename, datastream_id)
+      if actor.create_content(file, file.original_filename, file_path, file.content_type)
         respond_to do |format|
           format.html {
-            render json: [@generic_file.to_jq_upload],
-            content_type: 'text/html',
-            layout: false
+            render 'jq_upload', formats: 'json', content_type: 'text/html'
           }
           format.json {
-            render json: [@generic_file.to_jq_upload]
+            render 'jq_upload'
           }
         end
       else
@@ -201,8 +257,8 @@ module Sufia
 
     ActiveSupport::Deprecation.deprecate_methods(FilesControllerBehavior, :initialize_fields)
 
-    # The name of the datastream where we store the file data
-    def datastream_id
+    # The path of the fedora node where we store the file data
+    def file_path
       'content'
     end
 

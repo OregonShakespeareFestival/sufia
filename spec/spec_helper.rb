@@ -1,14 +1,19 @@
-ENV["RAILS_ENV"] ||= 'test'
+require 'coveralls'
+Coveralls.wear!
 
+ENV["RAILS_ENV"] ||= 'test'
+require "bundler/setup"
+
+require 'factory_girl'
 require 'engine_cart'
 EngineCart.load_application!
 
+require 'devise'
 require 'mida'
 require 'rspec/rails'
 require 'rspec/its'
 require 'rspec/matchers'
 require 'rspec/active_model/mocks'
-require 'factory_girl_rails'
 require 'capybara/poltergeist'
 require 'capybara/rspec'
 require 'capybara/rails'
@@ -16,15 +21,26 @@ require 'equivalent-xml'
 require 'equivalent-xml/rspec_matchers'
 require 'database_cleaner'
 require 'support/features'
+require 'support/rake'
+require 'support/input_support'
+require 'byebug' unless ENV['TRAVIS']
 
-if ENV['COVERAGE']
+if ENV['COVERAGE'] || ENV['TRAVIS']
   require 'simplecov'
-  SimpleCov.start 'rails'
-  SimpleCov.command_name "spec"
+  SimpleCov.root(File.expand_path('../..', __FILE__))
+  SimpleCov.formatter = Coveralls::SimpleCov::Formatter
+  SimpleCov.start('rails') do
+    add_filter '/spec'
+  end
+  SimpleCov.command_name 'spec'
 end
 
-Capybara.javascript_driver = :poltergeist
+Capybara.default_driver = :rack_test      # This is a faster driver
+Capybara.javascript_driver = :poltergeist # This is slower
 Capybara.default_wait_time = ENV['TRAVIS'] ? 30 : 15
+# HttpLogger.logger = Logger.new(STDOUT)
+# HttpLogger.ignore = [/localhost:8983\/solr/]
+# HttpLogger.colorize = false
 
 $in_travis = !ENV['TRAVIS'].nil? && ENV['TRAVIS'] == 'true'
 
@@ -63,6 +79,22 @@ end
 
 Resque.inline = Rails.env.test?
 
+class JsonStrategy
+  def initialize
+    @strategy = FactoryGirl.strategy_by_name(:create).new
+  end
+
+  delegate :association, to: :@strategy
+
+  def result(evaluation)
+    @strategy.result(evaluation).to_json
+  end
+end
+
+FactoryGirl.register_strategy(:json, JsonStrategy)
+FactoryGirl.definition_file_paths = [File.expand_path("../factories", __FILE__)]
+FactoryGirl.find_definitions
+
 module EngineRoutes
   def self.included(base)
     base.routes { Sufia::Engine.routes }
@@ -72,6 +104,7 @@ module EngineRoutes
   end
 end
 
+require 'active_fedora/cleaner'
 RSpec.configure do |config|
   config.expect_with :rspec do |c|
     c.syntax = :expect
@@ -82,13 +115,19 @@ RSpec.configure do |config|
 
   config.use_transactional_fixtures = false
 
-  config.before :each do
-    if Capybara.current_driver == :rack_test
-      DatabaseCleaner.strategy = :transaction
-    else
-      DatabaseCleaner.strategy = :truncation
+  config.before :each do |example|
+    unless (example.metadata[:type] == :view || example.metadata[:no_clean])
+      ActiveFedora::Cleaner.clean!
     end
-    DatabaseCleaner.start
+  end
+
+  config.before :each do |example|
+    if example.metadata[:type] == :feature && Capybara.current_driver != :rack_test
+      DatabaseCleaner.strategy = :truncation
+    else
+      DatabaseCleaner.strategy = :transaction
+      DatabaseCleaner.start
+    end
   end
 
   config.after do
@@ -105,11 +144,16 @@ RSpec.configure do |config|
 
   config.include Warden::Test::Helpers, type: :feature
   config.after(:each, type: :feature) { Warden.test_reset! }
+
+  config.include InputSupport, type: :input
+  config.include Capybara::RSpecMatchers, type: :input
+  config.include FactoryGirl::Syntax::Methods
+
   config.infer_spec_type_from_file_location!
 end
 
 module FactoryGirl
-  def self.find_or_create(handle, by=:email)
+  def self.find_or_create(handle, by = :email)
     tmpl = FactoryGirl.build(handle)
     tmpl.class.send("find_by_#{by}".to_sym, tmpl.send(by)) || FactoryGirl.create(handle)
   end

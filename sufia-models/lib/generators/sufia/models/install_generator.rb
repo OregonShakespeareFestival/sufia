@@ -1,12 +1,7 @@
-# -*- encoding : utf-8 -*-
-require 'rails/generators'
-require 'rails/generators/migration'
+require_relative 'abstract_migration_generator'
 
-class Sufia::Models::InstallGenerator < Rails::Generators::Base
-  include Rails::Generators::Migration
-
+class Sufia::Models::InstallGenerator < Sufia::Models::AbstractMigrationGenerator
   source_root File.expand_path('../templates', __FILE__)
-
   argument     :model_name, type: :string , default: "user"
   desc """
 This generator makes the following changes to your application:
@@ -15,33 +10,18 @@ This generator makes the following changes to your application:
  3. Creates the sufia.rb configuration file
  4. Generates mailboxer
  5. Generates usage stats config
- 6. Installs Blacklight gallery
- 7. Runs full-text generator
- 8. Runs proxies generator
+ 6. Runs full-text generator
+ 7. Runs proxies generator
+ 8. Runs cached stats generator
+ 9. Runs ORCID field generator
+10. Runs user stats generator
        """
-
-  # Implement the required interface for Rails::Generators::Migration.
-  # taken from http://github.com/rails/rails/blob/master/activerecord/lib/generators/active_record.rb
-  def self.next_migration_number(path)
-    if @prev_migration_nr
-      @prev_migration_nr += 1
-    else
-      if last_migration = Dir[File.join(path, '*.rb')].sort.last
-        @prev_migration_nr = last_migration.sub(File.join(path, '/'), '').to_i + 1
-      else
-        @prev_migration_nr = Time.now.utc.strftime("%Y%m%d%H%M%S").to_i
-      end
-    end
-    @prev_migration_nr.to_s
-  end
-
   def banner
-    say_status("warning", "GENERATING SUFIA MODELS", :yellow)
+    say_status("info", "GENERATING SUFIA MODELS", :blue)
   end
 
   # Setup the database migrations
   def copy_migrations
-    # Can't get this any more DRY, because we need this order.
     [
       "acts_as_follower_migration.rb",
       "add_social_to_users.rb",
@@ -57,8 +37,7 @@ This generator makes the following changes to your application:
       'create_tinymce_assets.rb',
       'create_content_blocks.rb',
       'create_featured_works.rb',
-      'create_proxy_deposit_requests.rb',
-      'create_proxy_deposit_rights.rb'
+      'add_external_key_to_content_blocks.rb'
     ].each do |file|
       better_migration_template file
     end
@@ -86,6 +65,11 @@ This generator makes the following changes to your application:
     copy_file 'config/redis_config.rb', 'config/initializers/redis_config.rb'
     copy_file 'config/resque_admin.rb', 'config/initializers/resque_admin.rb'
     copy_file 'config/resque_config.rb', 'config/initializers/resque_config.rb'
+    copy_file 'config/resque.rake', 'lib/tasks/resque.rake'
+  end
+
+  def create_collection
+    copy_file 'app/models/collection.rb', 'app/models/collection.rb'
   end
 
   def install_mailboxer
@@ -96,27 +80,33 @@ This generator makes the following changes to your application:
     generate 'sufia:models:usagestats'
   end
 
-  def install_blacklight_gallery
-    generate "blacklight_gallery:install"
-  end
-
   # Sets up full-text indexing (Solr config + jars)
   def full_text_indexing
     generate "sufia:models:fulltext"
   end
 
   # Sets up proxies and transfers
-  def full_text_indexing
+  def proxies
     generate "sufia:models:proxies"
   end
 
-  private
+  # Sets up cached usage stats
+  def cached_stats
+    generate 'sufia:models:cached_stats'
+  end
 
-  def better_migration_template(file)
-    begin
-      migration_template "migrations/#{file}", "db/migrate/#{file}"
-    rescue Rails::Generators::Error => e
-      say_status("warning", e.message, :yellow)
-    end
+  # Adds orcid field to user model
+  def orcid_field
+    generate 'sufia:models:orcid_field'
+  end
+
+  # Adds user stats-related migration & methods
+  def user_stats
+    generate 'sufia:models:user_stats'
+  end
+
+  # Adds clamav initializtion
+  def clamav
+    generate 'sufia:models:clamav'
   end
 end

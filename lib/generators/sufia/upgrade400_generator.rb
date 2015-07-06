@@ -21,7 +21,7 @@ This generator for upgrading sufia from 3.7.2 to 4.0 makes the following changes
        """
 
   def banner
-    say_status("warning", "UPGRADING SUFIA", :yellow)
+    say_status("info", "UPGRADING SUFIA", :blue)
   end
 
   # The engine routes have to come after the devise routes so that /users/sign_in will work
@@ -42,7 +42,7 @@ This generator for upgrading sufia from 3.7.2 to 4.0 makes the following changes
     file_path = "app/controllers/catalog_controller.rb"
     if File.exists?(file_path)
       insert_into_file file_path, after: 'include Hydra::Controller::ControllerBehavior' do
-        "\n  # Adds Sufia behaviors to the catalog controller\n" +
+        "\n  # Adds Sufia behaviors to the catalog controller (#{controller_name})\n" +
         "  include Sufia::Catalog\n"
       end
     else

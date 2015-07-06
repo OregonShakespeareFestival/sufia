@@ -1,5 +1,12 @@
+div.facets h3 {
+  font-size: 1.4em;
+}
 h4 .small {
   color: $navbar-default-toggle-icon-bar-bg;
+}
+
+.table-responsive {
+  overflow-x: visible;
 }
 
 .table thead th {
@@ -41,7 +48,6 @@ h4 .small {
 }
 
 .file_listing_thumbnail {
-  @extend .media-object;
   width: 64px;
 }
 
@@ -159,4 +165,12 @@ input#check_all {
 
 #my_nav {
   margin-bottom: 20px;
+}
+
+#check_all:disabled:hover:before {
+  content: "Too many items, can not select all.";
+  border: 1px;
+  font-size: .75em;
+  display: block;
+  width: 30em;
 }

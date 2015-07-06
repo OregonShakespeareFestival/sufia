@@ -12,12 +12,20 @@ describe "dashboard/index.html.erb", :type => :view do
     allow(@user).to receive(:all_following).and_return(["magneto"])
     allow(@user).to receive(:followers).and_return(["wolverine","storm"])
     allow(@user).to receive(:can_receive_deposits_from).and_return([])
+    allow(@user).to receive(:total_file_views).and_return(1)
+    allow(@user).to receive(:total_file_downloads).and_return(3)
     allow(controller).to receive(:current_user).and_return(@user)
+    @ability = instance_double("Ability")
+    allow(controller).to receive(:current_ability).and_return(@ability)
+    allow(@ability).to receive(:can?).with(:create, GenericFile).and_return(can_create_file)
+    allow(@ability).to receive(:can?).with(:create, Collection).and_return(can_create_collection)
     allow(view).to receive(:number_of_files).and_return("15")
     allow(view).to receive(:number_of_collections).and_return("3")
     assign(:activity, [])
     assign(:notifications, [])
   end
+  let(:can_create_file) { true }
+  let(:can_create_collection) { true }
 
   describe "heading" do
 
@@ -32,6 +40,19 @@ describe "dashboard/index.html.erb", :type => :view do
       expect(@heading).to have_link("View Files", sufia.dashboard_files_path)
       expect(@heading).to include "My Dashboard"
       expect(@heading).to include "Hello, Charles Francis Xavier"
+    end
+
+    context "when the user can't create files" do
+      let(:can_create_file) { false }
+      it "should not display the upload button" do
+        expect(@heading).not_to have_link("Upload", sufia.new_generic_file_path)
+      end
+    end
+    context "when the user can't create collections" do
+      let(:can_create_collection) { false }
+      it "should not display the create collection button" do
+        expect(@heading).not_to have_link("Create Collection", collections.new_collection_path)
+      end
     end
 
   end
@@ -52,8 +73,8 @@ describe "dashboard/index.html.erb", :type => :view do
     end
 
     it "should have links to view and edit the user's profile" do
-      expect(@sidebar).to include '<a class="btn btn-default btn-raised" href="' + sufia.profile_path(@user) + '">View Profile</a>'
-      expect(@sidebar).to include '<a class="btn btn-default btn-raised" href="' + sufia.edit_profile_path(@user) + '">Edit Profile</a>'
+      expect(@sidebar).to include '<a class="btn btn-default" href="' + sufia.profile_path(@user) + '">View Profile</a>'
+      expect(@sidebar).to include '<a class="btn btn-default" href="' + sufia.edit_profile_path(@user) + '">Edit Profile</a>'
     end
 
     it "should display user statistics" do
@@ -62,10 +83,12 @@ describe "dashboard/index.html.erb", :type => :view do
       expect(@sidebar).to include '<span class="badge">2</span>'
       expect(@sidebar).to include '<span class="badge">15</span>'
       expect(@sidebar).to include '<span class="badge">3</span>'
+      expect(@sidebar).to include '<span class="badge-optional">1</span> View'
+      expect(@sidebar).to include '<span class="badge-optional">3</span> Downloads'
     end
 
     it "should show the statistics before the profile" do
-      expect(@sidebar).to match /Your Statistics.*Charles Francis Xavier/m
+      expect(@sidebar).to match(/Your Statistics.*Charles Francis Xavier/m)
     end
   end
 
@@ -90,7 +113,6 @@ describe "dashboard/index.html.erb", :type => :view do
     end
 
     context "with notifications" do
-
       before do
         assign(:notifications, FactoryGirl.create(:user_with_mail).mailbox.inbox)
       end
@@ -111,7 +133,37 @@ describe "dashboard/index.html.erb", :type => :view do
         render
         expect(rendered).to include "Single File 1"
       end
+    end
 
+    context 'with transfers' do
+      let(:user) { FactoryGirl.find_or_create(:jill) }
+      let(:another_user) { FactoryGirl.find_or_create(:archivist) }
+      let(:title1) { 'foobar' }
+      let(:title2) { 'bazquux' }
+
+      before do
+        GenericFile.new(title: [title1]).tap do |f|
+          f.apply_depositor_metadata(another_user.user_key)
+          f.save!
+          f.request_transfer_to(user)
+        end
+        GenericFile.new(title: [title2]).tap do |f|
+          f.apply_depositor_metadata(user.user_key)
+          f.save!
+          f.request_transfer_to(another_user)
+        end
+        allow(controller).to receive(:current_user).and_return(user)
+        assign(:incoming, ProxyDepositRequest.where(receiving_user_id: user.id))
+        assign(:outgoing, ProxyDepositRequest.where(sending_user_id: user.id))
+      end
+
+      it 'renders received and sent transfer requests' do
+        render
+        expect(rendered).not_to include "You haven't received any file transfers requests"
+        expect(rendered).not_to include "You haven't transferred any files"
+        expect(rendered).to include title1
+        expect(rendered).to include title2
+      end
     end
 
     context "without activities and notifications" do

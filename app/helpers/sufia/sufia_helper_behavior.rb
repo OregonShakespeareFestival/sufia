@@ -1,14 +1,27 @@
 module Sufia
   module SufiaHelperBehavior
+    def orcid_label(style_class='')
+      "#{image_tag 'orcid.png', { alt: t('sufia.user_profile.orcid.alt'), class: style_class }} #{t('sufia.user_profile.orcid.label')}".html_safe
+    end
+
+    def zotero_label(opts={})
+      html_class = opts[:html_class] || ''
+      "#{image_tag 'zotero.png', { alt: t('sufia.user_profile.zotero.alt'), class: html_class }} #{t('sufia.user_profile.zotero.label')}".html_safe
+    end
+
+    def zotero_profile_url(zotero_user_id)
+      "https://www.zotero.org/users/#{zotero_user_id}"
+    end
+
     def error_messages_for(object)
       if object.try(:errors) and object.errors.full_messages.any?
         content_tag(:div, class: 'alert alert-block alert-error validation-errors') do
           content_tag(:h4, I18n.t('sufia.errors.header', model: object.class.model_name.human.downcase), class: 'alert-heading') +
             content_tag(:ul) do
-            object.errors.full_messages.map do |message|
-              content_tag(:li, message)
-            end.join('').html_safe
-          end
+              object.errors.full_messages.map do |message|
+                content_tag(:li, message)
+              end.join('').html_safe
+            end
         end
       else
         '' # return empty string
@@ -19,7 +32,7 @@ module Sufia
       if req.deleted_file?
         req.title
       else
-        link_to(req.title, sufia.generic_file_path(req['pid'].split(':').last))
+        link_to(req.title, sufia.generic_file_path(req.generic_file_id))
       end
     end
 
@@ -33,13 +46,15 @@ module Sufia
 
       # file
       else
-        path = if document.image? || document.pdf? || document.video? || document.office_document?
-          sufia.download_path document.noid, datastream_id: 'thumbnail'
-        elsif document.audio?
-          "audio.png"
-        else
-          "default.png"
-        end
+        path =
+          if document.image? || document.pdf? || document.video? || document.office_document?
+            sufia.download_path document, file: 'thumbnail'
+          elsif document.audio?
+            "audio.png"
+          else
+            "default.png"
+          end
+        options[:alt] = " "
         image_tag path, options
       end
     end
@@ -72,7 +87,7 @@ module Sufia
     end
 
     def number_of_deposits(user)
-      ActiveFedora::Base.where(Solrizer.solr_name('depositor', :stored_searchable) => user.user_key).count
+      ActiveFedora::Base.where(Solrizer.solr_name('depositor', :symbol) => user.user_key).count
     end
 
     def link_to_facet(field, field_string)
@@ -106,11 +121,12 @@ module Sufia
       user = ::User.find_by_user_key(login)
       return login if user.nil?
 
-      text = if user.respond_to? :name
-        user.name
-      else
-        login
-      end
+      text =
+        if user.respond_to? :name
+          user.name
+        else
+          login
+        end
 
       link_to text, Sufia::Engine.routes.url_helpers.profile_path(user)
     end
@@ -150,20 +166,25 @@ module Sufia
     end
 
     def render_visibility_link document
-      link_to render_visibility_label(document), sufia.edit_generic_file_path(document.noid, {anchor: "permissions_display"}),
-        id: "permission_"+document.noid, class: "visibility-link"
+      link_to render_visibility_label(document), sufia.edit_generic_file_path(document, {anchor: "permissions_display"}),
+        id: "permission_"+document.id, class: "visibility-link"
     end
 
     def render_visibility_label document
-      if document.public?
-        content_tag :span, t('sufia.visibility.open'), class: "label label-success", title: t('sufia.visibility.open')
-      elsif document.discoverable?
-        content_tag :span, 'Discoverable', class: "label label-warning", title: 'Discoverable'
-      elsif document.registered?
+      if document.registered?
         content_tag :span, t('sufia.institution_name'), class: "label label-info", title: t('sufia.institution_name')
+      elsif document.public?
+        content_tag :span, t('sufia.visibility.open'), class: "label label-success", title: t('sufia.visibility.open_title_attr')
       else
-        content_tag :span, t('sufia.visibility.private'), class: "label label-danger", title: t('sufia.visibility.private')
+        content_tag :span, t('sufia.visibility.private'), class: "label label-danger", title: t('sufia.visibility.private_title_attr')
       end
+    end
+
+    def user_display_name_and_key(user_key)
+      user = ::User.find_by_user_key(user_key)
+      return user_key if user.nil?
+
+      user.respond_to?(:name) ? "#{user.name} (#{user_key})" : user_key
     end
 
     private
